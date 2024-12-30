@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,6 +41,8 @@ class MyHomePage extends StatefulWidget {
 typedef Grid = List<List<BlockState>>;
 typedef Hints = List<List<int>>;
 
+enum Axis { Row, Col }
+
 class Size {
   int width, height;
   Size(this.width, this.height);
@@ -56,11 +60,11 @@ class _MyHomePageState extends State<MyHomePage> {
     (_) => List.generate(seconday, (_) => 0)
   );
 
-  updateHintsRow() => updateHints(grid_size.height.toInt(), (grid_size.width + 1) ~/ 2);
-  updateHintsCol() => updateHints(grid_size.width.toInt(), (grid_size.height.toInt() + 1) ~/ 2);
+  updateHintsRow() => updateHints(grid_size.height, (grid_size.width + 1) ~/ 2);
+  updateHintsCol() => updateHints(grid_size.width, (grid_size.height + 1) ~/ 2);
 
-  Grid updateGrid() => List.generate(grid_size.height.toInt(),
-    (_) => List.generate(grid_size.width.toInt(), (_) => BlockState.Empty)
+  Grid updateGrid() => List.generate(grid_size.height,
+    (_) => List.generate(grid_size.width, (_) => BlockState.Empty)
   );
 
 
@@ -94,7 +98,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return true;
   }
 
-  static bool validateCols(Grid grid, Hints cols){
+  static bool validateCols(final Grid grid, final Hints cols){
     for(int i = 0; i < grid[0].length; i++){
       final List<BlockState> col = List.generate(grid.length, (j) => grid[j][i]);
       if(!validateRow(col, [...cols[i]]..removeWhere((e) => e == 0))) return false;
@@ -103,16 +107,111 @@ class _MyHomePageState extends State<MyHomePage> {
     return true;
   }
 
-  static bool validate(final Grid grid, Hints rows, final Hints cols){
+  static bool validateSolution(final Grid grid, Hints rows, final Hints cols){
     return validateRows(grid, rows) && validateCols(grid, cols);
   }
 
 
+  static int minSegments(final List<BlockState> row){
+    int min = 0;
+    // bool broken = true;
+    for(int i = 0; i < row.length; ++i){
+      if(row[i] == BlockState.Filled){
+        ++min;
+        while(i < row.length && row[i] != BlockState.Exed) ++i;
+      }
+      // if(row[i] == BlockState.Exed) broken = true;
+    }
+
+    return min;
+  }
+
+
+  static int maxSegHelper(final List<BlockState> row){
+
+    int min = 0;
+    for(int i = 0; i < row.length; ++i){
+        if(row[i] == BlockState.Exed){
+          ++min;
+          
+          // skips an extra block (which is not exed anyway)
+          // it's a bug 
+          while(i < row.length && row[i] == BlockState.Exed) ++i;
+        }
+    }
+    if(row.first == BlockState.Exed) --min;
+    if(row.last == BlockState.Exed) --min;
+
+    return min + 1;
+  }
+
+  static int maxSegments(final List<BlockState> r){
+    final row = [...r];
+
+    for(int i = 1; i < row.length; i++){
+      if(row[i-1] != BlockState.Exed && row[i] == BlockState.Empty)
+        row[i] = BlockState.Exed;
+    }
+
+
+    return maxSegHelper(row);
+  }
+
+  (int, int) minAndMaxSegments(final Axis axis, final int index){
+    final List<BlockState> row = axis == Axis.Row ? grid[index] : List.generate(grid.length, (i) => grid[i][index]);
+
+    return (minSegments(row), maxSegments(row));
+  }
+
+
+  bool solvable(){
+    debugPrint("row_hints[0]: ${row_hints[0]}");
+    for(int i = 0; i < grid.length; i++){
+      final List<int> hints = [...row_hints[i]]..removeWhere((e) => e == 0);
+
+      final (min, max) = minAndMaxSegments(Axis.Row, i);
+      if(hints.length < min || hints.length > max) return false;
+    }
+
+    for(int i = 0; i < grid[0].length; i++){
+      // ! Might be a bug...
+      final List<int> hints = [...col_hints[i]]..removeWhere((e) => e == 0);
+
+      final (min, max) = minAndMaxSegments(Axis.Col, i);
+      if(hints.length < min || hints.length > max) return false;
+    }
+
+    return true;
+  }
+
+
+  static (int, int) findEmptyBlock(final Grid grid){
+    for(int i = 0; i < grid.length; i++)
+      for(int j = 0; j < grid[i].length; j++)
+        if(grid[i][j] == BlockState.Empty) return (i, j);
+
+    return (-1, -1);
+  }
+
+  bool solve(){
+    final (i, j) = findEmptyBlock(grid);
+    if(i == -1) return true;
+
+    for(final state in [BlockState.Filled, BlockState.Exed]){
+      grid[i][j] = state;
+      if(validateSolution(grid, row_hints, col_hints) && solve()) return true;
+      grid[i][j] = BlockState.Empty;
+    }
+
+    return false;
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    void updateDimension(int inc, bool width) => setState(() {
-      if (width) grid_size.width += inc;
+
+    void updateDimension(final int inc, final Axis axis) => setState(() {
+      if (axis == Axis.Row) grid_size.width += inc;
       else grid_size.height += inc;
       grid = updateGrid();
       row_hints = updateHintsRow();
@@ -217,13 +316,13 @@ class _MyHomePageState extends State<MyHomePage> {
                                   if(col[i] == BlockState.Exed) col[i] = BlockState.Empty;
                                   else col[i] = (col[i] == BlockState.Filled) ? BlockState.Empty : BlockState.Filled;
                                 }),
-              
+
                                 onLongPress: () => setState(() {
                                   if(col[i] == BlockState.Filled) return;
-              
+
                                   col[i] = (col[i] == BlockState.Exed) ? BlockState.Empty : BlockState.Exed;
                                 }),
-              
+
                                 grid_size: grid_size
                               )
                         ],
@@ -242,16 +341,29 @@ class _MyHomePageState extends State<MyHomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 Counter(
-                  number: grid_size.width.toInt(),
-                  callback: (inc) => updateDimension(inc, true),
+                  number: grid_size.width,
+                  callback: (inc) => updateDimension(inc, Axis.Row),
                 ),
 
                 ElevatedButton(
                   child: Text("Validate"),
                   onPressed: () {
-                    final bool v = validate(grid, row_hints, col_hints);
+                    final bool v = validateSolution(grid, row_hints, col_hints);
                     debugPrint("Validation: $v");
                   } ,
+                ),
+
+                ElevatedButton(
+                  child: Text("Solve", style: TextStyle(color: Colors.green)),
+                  onPressed: (){
+                    // if(solve()) setState(() {});
+                    // else debugPrint("No solution found!");
+
+                      final (min, max) = minAndMaxSegments(Axis.Row, 0);
+                      debugPrint("Min: $min, Max: $max");
+                      final bool can_solve = solvable();
+                      debugPrint("Solvable: $can_solve");
+                  },
                 ),
 
                 ElevatedButton(
@@ -264,8 +376,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
 
                 Counter(
-                  number: grid_size.height.toInt(),
-                  callback: (inc) => updateDimension(inc, false),
+                  number: grid_size.height,
+                  callback: (inc) => updateDimension(inc, Axis.Col),
                 ),
               ],
             ),
