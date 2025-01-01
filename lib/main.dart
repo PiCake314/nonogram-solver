@@ -71,44 +71,43 @@ class _MyHomePageState extends State<MyHomePage> {
 
 
   static bool validateRow(final List<BlockState> row, final List<int> hints){
-    final List<int> row_hints = [];
+    final cleaned_hints = [...hints]..removeWhere((e) => e == 0);
+
+    final List<int> row_counts = [];
     int count = 0;
 
     for(final block in row){
       if(block == BlockState.Filled) count++;
       else if(count > 0){
-        row_hints.add(count);
+        row_counts.add(count);
         count = 0;
       }
     }
     // one last check in case the row ends with a filled block
-    if(count > 0) row_hints.add(count);
+    if(count > 0) row_counts.add(count);
 
-    debugPrint("Row Hints: $row_hints");
-    debugPrint("Hints: $hints");
-
-    return listEquals(row_hints, hints);
+    return listEquals(row_counts, cleaned_hints);
   }
 
 
-  static bool validateRows(final Grid grid, final Hints rows){
+  static bool validateRows(final Grid grid, final Hints rows_hint){
     for(int i = 0; i < grid.length; i++)
-      if(!validateRow(grid[i], [...rows[i]]..removeWhere((e) => e == 0))) return false;
+      if(!validateRow(grid[i], [...rows_hint[i]])) return false;
 
     return true;
   }
 
-  static bool validateCols(final Grid grid, final Hints cols){
+  static bool validateCols(final Grid grid, final Hints cols_hint){
     for(int i = 0; i < grid[0].length; i++){
       final List<BlockState> col = List.generate(grid.length, (j) => grid[j][i]);
-      if(!validateRow(col, [...cols[i]]..removeWhere((e) => e == 0))) return false;
+      if(!validateRow(col, [...cols_hint[i]])) return false;
     }
 
     return true;
   }
 
-  static bool validateSolution(final Grid grid, Hints rows, final Hints cols){
-    return validateRows(grid, rows) && validateCols(grid, cols);
+  static bool validateSolution(final Grid grid, Hints rows_hint, final Hints cols_hint){
+    return validateRows(grid, rows_hint) && validateCols(grid, cols_hint);
   }
 
 
@@ -133,7 +132,7 @@ class _MyHomePageState extends State<MyHomePage> {
     for(int i = 0; i < row.length; ++i){
         if(row[i] == BlockState.Exed){
           ++min;
-          
+
           // skips an extra block (which is not exed anyway)
           // it's a bug 
           while(i < row.length && row[i] == BlockState.Exed) ++i;
@@ -163,47 +162,120 @@ class _MyHomePageState extends State<MyHomePage> {
     return (minSegments(row), maxSegments(row));
   }
 
+  // Not using Grid bc I want it to be explicit that it's a list of lists.
+  // Not a 2D array.
+  List<List<BlockState>> generateAllStates(final List<BlockState> r){
+    // Finding all empty blocks. Counting in base 3. 0 = empty, 1 = filled, 2 = exed.
 
-  bool solvable(){
-    debugPrint("row_hints[0]: ${row_hints[0]}");
-    for(int i = 0; i < grid.length; i++){
-      final List<int> hints = [...row_hints[i]]..removeWhere((e) => e == 0);
+    final row = [...r];
+    final List<int> indices = [];
+    for(int i = 0; i < row.length; i++) if(row[i] == BlockState.Empty) indices.add(i);
 
-      final (min, max) = minAndMaxSegments(Axis.Row, i);
-      if(hints.length < min || hints.length > max) return false;
+    // increasing like we're adding 1 to a number in base 3.
+    void increase(final List<BlockState> current_state){
+      for(int i = 0; i < current_state.length; ++i){
+        ++current_state[i];
+
+        // could move this to the for loop condition
+        // but this is more readable.
+        if(current_state[i] != BlockState.Empty) break;
+      }
     }
 
-    for(int i = 0; i < grid[0].length; i++){
-      // ! Might be a bug...
-      final List<int> hints = [...col_hints[i]]..removeWhere((e) => e == 0);
+    final current_state = List.filled(indices.length, BlockState.Empty);
 
-      final (min, max) = minAndMaxSegments(Axis.Col, i);
-      if(hints.length < min || hints.length > max) return false;
+    List<List<BlockState>> all_states = [];
+
+    // minus 1 bc we don't wanna do Exed
+    final limit = pow(BlockState.values.length -1, current_state.length);
+    for(int i = 0; i < limit; i++){
+
+      for(int x = 0; x < indices.length; ++x) row[indices[x]] = current_state[x];
+
+      all_states.add([...row]);
+
+      increase(current_state);
     }
+
+    return all_states;
+  }
+
+  // bool solvable(){
+
+  //   final states = generateAllStates(grid[0]);
+  //   for(final state in states)
+  //     debugPrint(state.toString());
+
+  //   // for(int i = 0; i < grid.length; i++){
+  //   //   final List<int> hints = [...row_hints[i]]..removeWhere((e) => e == 0);
+  //   //   debugPrint("hints: $hints");
+
+  //   //   final (min, max) = minAndMaxSegments(Axis.Row, i);
+  //   //   debugPrint("Min: $min, Max: $max");
+  //   //   if(hints.length < min || hints.length > max) return false;
+  //   // }
+
+  //   // debugPrint("\n\n");
+
+  //   // for(int i = 0; i < grid[0].length; i++){
+  //   //   // ! Might be a bug...
+  //   //   final List<int> hints = [...col_hints[i]]..removeWhere((e) => e == 0);
+  //   //   debugPrint("hints: $hints");
+
+  //   //   final (min, max) = minAndMaxSegments(Axis.Col, i);
+  //   //   debugPrint("Min: $min, Max: $max");
+  //   //   if(hints.length < min || hints.length > max) return false;
+  //   // }
+
+  //   return true;
+  // }
+
+
+  // static (int, int) findEmptyBlock(final Grid grid){
+  //   for(int i = 0; i < grid.length; i++)
+  //     for(int j = 0; j < grid[i].length; j++)
+  //       if(grid[i][j] == BlockState.Empty) return (i, j);
+
+  //   return (-1, -1);
+  // }
+
+
+  // bool solve(){
+  //   final (i, j) = findEmptyBlock(grid);
+  //   if(i == -1) return true;
+
+  //   for(final state in [BlockState.Filled, BlockState.Exed]){
+  //     grid[i][j] = state;
+  //     if(solvable() && solve()) return true;
+  //     grid[i][j] = BlockState.Empty;
+  //   }
+
+  //   return false;
+  // }
+
+
+  List<List<BlockState>> allPossibleStates(final List<BlockState> row, final List<int> hints){
+    final List<List<BlockState>> all_states = generateAllStates(row);
+    debugPrint("All states:");
+    for(final state in all_states)
+      debugPrint(state.toString());
+    debugPrint("--------------------");
+
+    return all_states..removeWhere((state) => !validateRow(state, hints));
+  }
+
+
+  bool betterSolve(){
+    // const int PASSES_LIMIT = 100;
+
+    final states = allPossibleStates(grid[0], row_hints[0]);
+
+    debugPrint("All possible states:");
+    for(final state in states)
+      debugPrint(state.toString());
+    debugPrint("--------------------");
 
     return true;
-  }
-
-
-  static (int, int) findEmptyBlock(final Grid grid){
-    for(int i = 0; i < grid.length; i++)
-      for(int j = 0; j < grid[i].length; j++)
-        if(grid[i][j] == BlockState.Empty) return (i, j);
-
-    return (-1, -1);
-  }
-
-  bool solve(){
-    final (i, j) = findEmptyBlock(grid);
-    if(i == -1) return true;
-
-    for(final state in [BlockState.Filled, BlockState.Exed]){
-      grid[i][j] = state;
-      if(validateSolution(grid, row_hints, col_hints) && solve()) return true;
-      grid[i][j] = BlockState.Empty;
-    }
-
-    return false;
   }
 
 
@@ -356,13 +428,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 ElevatedButton(
                   child: Text("Solve", style: TextStyle(color: Colors.green)),
                   onPressed: (){
-                    // if(solve()) setState(() {});
+                    // if(betterSolve()) setState(() {});
                     // else debugPrint("No solution found!");
-
-                      final (min, max) = minAndMaxSegments(Axis.Row, 0);
-                      debugPrint("Min: $min, Max: $max");
-                      final bool can_solve = solvable();
-                      debugPrint("Solvable: $can_solve");
+                    betterSolve();
                   },
                 ),
 

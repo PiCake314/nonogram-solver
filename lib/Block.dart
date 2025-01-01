@@ -4,8 +4,32 @@ import 'package:flutter/material.dart';
 enum BlockState {
   Empty,
   Filled,
-  Exed
+  Exed;
+
+  BlockState operator+(int i) {
+    switch(this) {
+      case BlockState.Empty:
+        return BlockState.Filled;
+      case BlockState.Filled:
+        return BlockState.Exed;
+      case BlockState.Exed:
+        return BlockState.Empty;
+    }
+  }
+
+  @override
+  String toString() {
+    switch(this) {
+      case BlockState.Empty:
+        return "Empty";
+      case BlockState.Filled:
+        return "Filled";
+      case BlockState.Exed:
+        return "Exed";
+    }
+  }
 }
+
 
 
 class Block extends StatefulWidget {
