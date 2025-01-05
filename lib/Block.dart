@@ -6,7 +6,10 @@ enum BlockState {
   Filled,
   Exed;
 
-  BlockState operator+(int i) {
+  BlockState operator+(final int i) {
+    // i isn't used.
+    // I wanted to do ++;
+
     switch(this) {
       case BlockState.Empty:
         return BlockState.Filled;
@@ -14,6 +17,18 @@ enum BlockState {
         return BlockState.Exed;
       case BlockState.Exed:
         return BlockState.Empty;
+    }
+  }
+
+
+  BlockState flip(){
+    switch(this){
+      case BlockState.Empty:
+        return BlockState.Filled;
+      case BlockState.Filled:
+        return BlockState.Empty;
+      case BlockState.Exed:
+        return BlockState.Exed;
     }
   }
 
@@ -37,13 +52,19 @@ class Block extends StatefulWidget {
   final void Function() onTap;
   final void Function() onLongPress;
   final grid_size;
+  final int block_size;
+  final int i;
+  final int j;
 
   const Block({
     super.key,
     required this.state,
     required this.onTap,
     required this.onLongPress,
-    required this.grid_size
+    required this.grid_size,
+    required this.block_size,
+    required this.i,
+    required this.j,
   });
 
 
@@ -52,22 +73,31 @@ class Block extends StatefulWidget {
 }
 
 class _BlockState extends State<Block> {
-  static const double size = 50;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final two_thirds_width = 2/3 * width;
+    // final width = MediaQuery.of(context).size.width;
+    // final two_thirds_width = 2/3 * width;
+    // widget.grid_size.height * size > two_thirds_width ? 35 : size
+
+    bool is5th(final int index) => index > 1 && (index) % 5 == 0;
 
     return GestureDetector(
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
 
       child: Container(
-        width: widget.grid_size.height * size > two_thirds_width ? 35 : size,
-        height:widget.grid_size.height * size > two_thirds_width ? 35 : size,
+        width: widget.block_size.toDouble(),
+        height: widget.block_size.toDouble(),
         decoration: BoxDecoration(
-            border: Border.all(color: Theme.of(context).colorScheme.onSurface),
+            border:
+              Border.merge(
+                Border.merge(
+                  Border.all(color: Colors.black),
+                  Border(left: BorderSide(color: Colors.black, width: is5th(widget.j) ? 5 : 0)),
+                ),
+              Border(top: BorderSide(color: Colors.black, width: is5th(widget.i) ? 5 : 0)),
+            ),
         ),
 
         child: Padding(
