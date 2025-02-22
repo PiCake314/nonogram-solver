@@ -1,47 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nono_solver/Grid.dart';
-import 'package:nono_solver/HintsRow.dart';
+import 'package:nono_solver/HintsRow.dart' show Size, Hints;
 
 
 
-class HintDialog extends StatefulWidget {
+class HintDialog extends StatelessWidget {
   final Hints hints;
   final Size grid_size;
   final Axis_t axis;
   final int index;
-  const HintDialog({super.key, 
+  HintDialog({super.key, 
     required this.hints, 
     required this.grid_size,
     required this.axis,
     required this.index,
   });
 
-  @override
-  State<HintDialog> createState() => _HintDialogState();
-}
 
-class _HintDialogState extends State<HintDialog> {
-
-  late final PageController controller;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = PageController(initialPage: widget.index);
-  }
-
-  @override
-  void dispose() { super.dispose(); controller.dispose(); }
-
+  late final controller = PageController(initialPage: index);
 
   void changePage(bool forward){
-    if(forward && controller.page! < widget.hints.length - 1)
-      controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+    if(forward && controller.page! < hints.length - 1)
+      controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOutSine);
     else if(!forward && controller.page! > 0)
-      controller.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+      controller.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOutSine);
   }
-
 
   @override
   Widget build(BuildContext context) =>
@@ -62,21 +46,18 @@ class _HintDialogState extends State<HintDialog> {
           width: MediaQuery.sizeOf(context).width - 200,
           height: 300,
 
-          child: PageView(
+          child: PageView.builder(
             controller: controller,
-
-            // itemCount: widget.hints.length,
-            // itemBuilder: (context, index) {
-
-            children: [
-              for(final (index, hint_row) in widget.hints.indexed)
-                Dialog(
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: hints.length,
+            itemBuilder: (context, index) => SingleChildScrollView(
+              child: Dialog(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(top: 24),
-                        child: Text("${widget.axis == Axis_t.Row ? "Row" : "Col"} ${index + 1}",
+                        child: Text("${axis == Axis_t.Row ? "Row" : "Column"} ${index + 1}",
                           style: const TextStyle(fontSize: 32),
                         ),
                       ),
@@ -88,37 +69,40 @@ class _HintDialogState extends State<HintDialog> {
                         child: ListView.separated(
                           separatorBuilder: (_, __) => const SizedBox(width: 30),
                           scrollDirection: Axis.horizontal,
-                          itemCount: widget.hints.first.length,
+                          itemCount: hints.first.length,
                           itemBuilder: (context, j) =>
-                            SizedBox(
-                              width: 250,
-                              height: 250,
-                              child: Center(
-                                child: TextField(
-                                  decoration: InputDecoration(
-                                    border: const OutlineInputBorder(),
-                                    labelText: "Hint ${j + 1}",
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: SizedBox(
+                                width: 150,
+                                height: 250,
+                                child: Center(
+                                  child: TextField(
+                                    decoration: InputDecoration(
+                                      border: const OutlineInputBorder(),
+                                      labelText: "Hint ${j + 1}",
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      // TODO: fix the regex
+                                      // FilteringTextInputFormatter.allow(RegExp("[0-${grid_size.height}]")),
+                                      LengthLimitingTextInputFormatter(grid_size.height < 10 ? 1 : 2),
+                                    ],
+                                    onChanged: (value) => hints[index][j] = value.isEmpty ? 0 : int.parse(value),
+                                    controller: TextEditingController(
+                                      text: hints[index][j] == 0 ? "" : hints[index][j].toString(),
+                                    )
                                   ),
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    // TODO: fix the regex
-                                    // FilteringTextInputFormatter.allow(RegExp("[0-${grid_size.height}]")),
-                                    LengthLimitingTextInputFormatter(widget.grid_size.height < 10 ? 1 : 2),
-                                  ],
-                                  onChanged: (value) => hint_row[j] = value.isEmpty ? 0 : int.parse(value),
-                                  controller: TextEditingController(
-                                    text: hint_row[j] == 0 ? "" : hint_row[j].toString(),
-                                  )
                                 ),
                               ),
                             )
+                          ),
                         ),
-                      ),
-                    ],
-                  )
-                )
-            ],
+                      ],
+                    )
+              ),
+            ),
           ),
         ),
 

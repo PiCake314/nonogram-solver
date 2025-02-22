@@ -4,14 +4,13 @@ import 'package:nono_solver/HintDialog.dart';
 
 
 typedef Hints = List<List<int>>;
-
 class Size {
   int width, height;
   Size(this.width, this.height);
 }
 
 
-class HintsRow extends StatefulWidget {
+class HintsRow extends StatelessWidget {
   final Hints row_hints;
   final Size grid_size;
   final int block_size;
@@ -23,24 +22,19 @@ class HintsRow extends StatefulWidget {
   });
 
   @override
-  State<HintsRow> createState() => HintsRowState();
-}
-
-class HintsRowState extends State<HintsRow> {
-  @override
   Widget build(BuildContext context) => Column(
     mainAxisAlignment: MainAxisAlignment.center,
     children:
-      List.generate(widget.row_hints.length, (i) => 
+      List.generate(row_hints.length, (i) => 
         SizedBox(
-          width: widget.block_size.toDouble(),
-          height: widget.block_size.toDouble(),
+          width: block_size.toDouble(),
+          height: block_size.toDouble(),
           child: IconButton(
-            icon: Icon(Icons.edit, size: widget.block_size/1.5),
+            icon: Icon(Icons.edit, size: block_size/1.5),
             onPressed: (){
               showDialog(
                 context: context,
-                builder: (_) => HintDialog(hints: widget.row_hints, grid_size: widget.grid_size, axis: Axis_t.Row, index: i),
+                builder: (_) => HintDialog(hints: row_hints, grid_size: grid_size, axis: Axis_t.Row, index: i),
               );
             },
           )

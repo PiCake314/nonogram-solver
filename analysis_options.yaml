@@ -26,10 +26,13 @@ linter:
     prefer_const_declarations: true
     prefer_const_literals_to_create_immutables: true
     prefer_const_constructors: true
+
     constant_identifier_names: false
     non_constant_identifier_names: false
+
     curly_braces_in_flow_control_structures: false
     file_names: false
+    sort_child_properties_last: false
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

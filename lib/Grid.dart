@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:nono_solver/Block.dart';
+import 'package:flutter/material.dart'     hide Size;
+import 'package:nono_solver/HintsRow.dart' show Size;
 
 
 
@@ -24,7 +25,7 @@ enum Axis_t { Row, Col }
 
 class Grid extends StatefulWidget {
   final Grid_t grid;
-  final grid_size;
+  final Size grid_size;
   final int block_size;
   const Grid({
     super.key,
@@ -66,7 +67,7 @@ class _GridState extends State<Grid> {
 
                 i: i,
                 j: j,
-              )
+              ),
         ],
       ),
     ],

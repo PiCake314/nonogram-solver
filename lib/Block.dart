@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Size;
+import 'package:nono_solver/HintsRow.dart' show Size;
 
 
 enum BlockState {
@@ -51,7 +52,7 @@ class Block extends StatefulWidget {
   final BlockState state;
   final void Function() onTap;
   final void Function() onLongPress;
-  final grid_size;
+  final Size grid_size;
   final int block_size;
   final int i;
   final int j;
@@ -87,8 +88,8 @@ class _BlockState extends State<Block> {
       onLongPress: widget.onLongPress,
 
       child: Container(
-        width: widget.block_size.toDouble(),
-        height: widget.block_size.toDouble(),
+        width: widget.block_size.toDouble() + (is5th(widget.j) ? 5 : 0),
+        height: widget.block_size.toDouble() + (is5th(widget.i) ? 5 : 0),
         decoration: BoxDecoration(
             border:
               Border.merge(
@@ -98,6 +99,7 @@ class _BlockState extends State<Block> {
                 ),
               Border(top: BorderSide(color: Colors.black, width: is5th(widget.i) ? 5 : 0)),
             ),
+            // border: Bordexr.all(color: Colors.black),
         ),
 
         child: Padding(

@@ -1,7 +1,9 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Size;
+import 'package:flutter/services.dart';
+import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:nono_solver/Block.dart';
 import 'package:nono_solver/Counter.dart';
 import 'package:nono_solver/Grid.dart';
@@ -21,6 +23,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Nono Solver',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromRGBO(103, 58, 183, 1)),
@@ -176,97 +179,63 @@ class _MyHomePageState extends State<MyHomePage> {
     => generateAllStates(row)..removeWhere((state) => !validateRow(state, hints));
 
 
-  void update(final Axis_t axis, final int index, final List<BlockState> updated){
-    if(axis == Axis_t.Row) grid[index] = updated;
-    else{
-      for(int i = 0; i < grid.length; i++) grid[i][index] = updated[i];
+
+
+
+  void process(
+    final Axis_t axis,
+    final getoverlalpOf
+  )
+  {
+    final hints = axis == Axis_t.Row ? row_hints : col_hints;
+    final primary_len = axis == Axis_t.Row ? grid_size.height : grid_size.width;
+    final secondary_len = axis == Axis_t.Row ? grid_size.width : grid_size.height;
+
+    for(int i = 0; i < primary_len; ++i){
+      final row = axis == Axis_t.Row ? getRow(grid, i) : getCol(grid, i);
+
+      final states = allPossibleStates(row, hints[i]);
+      final overlap = getoverlalpOf(states, primary_len);
+
+
+
+
+      if(axis == Axis_t.Row){
+           for(int j = 0; j < secondary_len; ++j) if(overlap[j] != BlockState.Empty) grid[i][j] = overlap[j];
+      }
+      else for(int j = 0; j < secondary_len; ++j) if(overlap[j] != BlockState.Empty) grid[j][i] = overlap[j];
+
     }
   }
 
+
   int stage = 0;
-
-  Future<bool> betterSolve() async {
-    final int ROW_LEN = grid.length;
-    final int COL_LEN = grid[0].length;
-    // const int PASSES_LIMIT = 100;
-
-    // final states = allPossibleStates(grid[0], row_hints[0]);
-    // final overlap = getOverlap(states, grid_size.width);
-    // final exed_overlap = getExedOverlap(states, grid_size.height);
-
-
-    // Grid clone;
-    // do{  clone = grid.clone();
-
-
-    // for(int t = 0; t < 10; ++t){
+  void step() {
 
     switch(stage){
-
-      case 0:
-      for(int i = 0; i < ROW_LEN; i++){
-        final states = allPossibleStates(getRow(grid, i), row_hints[i]);
-        final overlap = getOverlap(states, ROW_LEN);
-
-        for(int j = 0; j < COL_LEN; j++) if(overlap[j] != BlockState.Empty)grid[i][j] = overlap[j];
-        // grid[i] = overlap;
-      }
-      break;
-
-
-      case 1:
-      for(int i = 0; i < COL_LEN; i++){
-        final states = allPossibleStates(getCol(grid, i), col_hints[i]);
-        final overlap = getOverlap(states, COL_LEN); // idk why it has to be reversed :c
-
-        for(int j = 0; j < ROW_LEN; j++) if(overlap[j] != BlockState.Empty) grid[j][i] = overlap[j];
-        // update(Axis_t.Col, i, overlap);
-      }
-      break;
-
-
-      case 2:
-
-      for(int i = 0; i < ROW_LEN; i++){
-        final states = allPossibleStates(getRow(grid, i), row_hints[i]);
-
-
-        final overlap = getExedOverlap(states, ROW_LEN);
-
-        for(int j = 0; j < COL_LEN; j++) if(overlap[j] != BlockState.Empty) grid[i][j] = overlap[j];
-        // grid[i] = overlap;
-      }
-      break;
-
-      case 3:
-
-      for(int i = 0; i < COL_LEN; i++){
-        final states = allPossibleStates(getCol(grid, i), col_hints[i]);
-        final overlap = getExedOverlap(states, COL_LEN); // idk why it has to be reversed :c
-
-        for(int j = 0; j < ROW_LEN; j++) if(overlap[j] != BlockState.Empty) grid[j][i] = overlap[j];
-        // update(Axis_t.Col, i, overlap);
-      }
-
+      case 0: process(Axis_t.Row, getOverlap);     break;
+      case 1: process(Axis_t.Col, getOverlap);     break;
+      case 2: process(Axis_t.Row, getExedOverlap); break;
+      case 3: process(Axis_t.Col, getExedOverlap); break;
     }
 
-      setState(() {});
-    //   await Future.delayed(const Duration(seconds: 2));
-
-    // }
-
-    // }while(grid.compare(clone));
+    setState(() {});
 
     ++stage;
     stage %= 4;
-
-    return true;
   }
 
 
-  static calculateBlockSize(final int width, final Size grid_size) {
-    return (width / (max(grid_size.width, grid_size.height) + 2)).floor();
-  }
+  static calculateBlockSize(final int width, final Size grid_size) =>
+     (width / (max(grid_size.width, grid_size.height) + 2)).floor();
+
+
+
+
+  List<List<bool>> generateChecked(final Size grid_size) => List.generate(grid_size.height, (_) => List.generate(grid_size.width, (_) => false));
+  late List<List<bool>> checked = generateChecked(grid_size);
+  BlockState putting = BlockState.Filled;
+  BlockState affecting = BlockState.Empty;
 
   @override
   Widget build(BuildContext context) {
@@ -283,9 +252,15 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final int block_size = calculateBlockSize(MediaQuery.of(context).size.width.toInt(), grid_size);
 
+    // SystemChrome.setPreferredOrientations([
+    //   DeviceOrientation.portraitUp,
+    //   DeviceOrientation.portraitDown,
+    // ]);
+
+    final transformation_controller = TransformationController();
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
-
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -293,6 +268,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
           // !!! Column Hints
           InteractiveViewer(
+            transformationController: transformation_controller,
             child: Column(
               children: [
                 HintsColumn(col_hints: col_hints, grid_size: grid_size, block_size: block_size),
@@ -304,7 +280,48 @@ class _MyHomePageState extends State<MyHomePage> {
                     HintsRow(row_hints: row_hints, grid_size: grid_size, block_size: block_size),
 
                     //!!! Grid
-                    Grid(grid: grid, grid_size: grid_size, block_size: block_size),
+                    XGestureDetector(
+                      onMoveStart: (details) {
+                        debugPrint("Matrix:\n${transformation_controller.value}");
+                        if(transformation_controller.value != Matrix4.identity()) return;
+
+                        // calculating indecies
+                        final x = (details.localPos.dx) ~/ block_size;
+                        final y = (details.localPos.dy) ~/ block_size;
+
+                        if(x < grid_size.width && y < grid_size.height && !checked[y][x])
+                          setState(() {
+                            checked[y][x] = true;
+                            putting = grid[y][x] == BlockState.Empty ? BlockState.Filled : BlockState.Empty;
+                            affecting = grid[y][x];
+
+
+                            grid[y][x] = putting;
+                          }); 
+                      },
+
+                      onMoveUpdate: (details) {
+                        if(transformation_controller.value != Matrix4.identity()) return;
+
+                        // calculating indecies
+                        final x = (details.localPos.dx) ~/ block_size;
+                        final y = (details.localPos.dy) ~/ block_size;
+
+
+                        if(x < grid_size.width && y < grid_size.height && !checked[y][x])
+                          setState(() {
+                            checked[y][x] = true;
+                            if(grid[y][x] == affecting) grid[y][x] = putting;
+                          });
+                      },
+                      onMoveEnd: (details){
+                        if(transformation_controller.value != Matrix4.identity()) return;
+
+                        setState(() => checked = generateChecked(grid_size));
+                      },
+
+                      child: Grid(grid: grid, grid_size: grid_size, block_size: block_size),
+                    ),
                   ]
                 ),
               ],
@@ -341,8 +358,16 @@ class _MyHomePageState extends State<MyHomePage> {
                     onPressed: (){
                       // if(betterSolve()) setState(() {});
                       // else debugPrint("No solution found!");
-                      betterSolve();
+                      step();
                     },
+                  ),
+                ),
+
+                SizedBox(
+                  width: 100,
+                  child: ElevatedButton(
+                    child: const Text("Step", style: TextStyle(color: Colors.blue)),
+                    onPressed: step,
                   ),
                 ),
 

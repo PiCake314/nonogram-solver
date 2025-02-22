@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:nono_solver/Grid.dart';
 import 'package:nono_solver/HintDialog.dart';
-import 'package:nono_solver/HintsRow.dart';
+import 'package:nono_solver/HintsRow.dart' show Size, Hints;
 
 
-class HintsColumn extends StatefulWidget {
+class HintsColumn extends StatelessWidget {
   final Hints col_hints;
   final Size grid_size;
   final int block_size;
@@ -15,28 +15,21 @@ class HintsColumn extends StatefulWidget {
   });
 
   @override
-  State<HintsColumn> createState() => _HintsColumnState();
-}
-
-
-
-class _HintsColumnState extends State<HintsColumn> {
-  @override
   Widget build(BuildContext context) =>  Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
-      SizedBox(width: widget.block_size.toDouble()), // offset for the edit icon to the left
+      SizedBox(width: block_size.toDouble()), // offset for the edit icon to the left
 
-      ...List.generate(widget.col_hints.length,
+      ...List.generate(col_hints.length,
         (i) => SizedBox(
-          width: widget.block_size.toDouble(),
-          height: widget.block_size.toDouble(),
+          width: block_size.toDouble(),
+          height: block_size.toDouble(),
           child: IconButton(
-            icon: Icon(Icons.edit, size: widget.block_size/1.5),
+            icon: Icon(Icons.edit, size: block_size/1.5),
             onPressed: (){
               showDialog(
                 context: context,
-                builder: (_) => HintDialog(hints: widget.col_hints, grid_size: widget.grid_size,axis: Axis_t.Col , index: i),
+                builder: (_) => HintDialog(hints: col_hints, grid_size: grid_size,axis: Axis_t.Col , index: i),
               );
             },
           )
