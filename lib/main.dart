@@ -2,8 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Size;
-import 'package:flutter/services.dart';
-import 'package:gesture_x_detector/gesture_x_detector.dart';
 import 'package:nono_solver/Block.dart';
 import 'package:nono_solver/Counter.dart';
 import 'package:nono_solver/Grid.dart';
@@ -32,6 +30,14 @@ class MyApp extends StatelessWidget {
       home: const MyHomePage(),
     );
   }
+}
+
+
+
+class MyInteractiveiwer extends InteractiveViewer {
+  MyInteractiveiwer({super.key, required super.child});
+
+
 }
 
 
@@ -259,6 +265,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final transformation_controller = TransformationController();
 
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Column(
@@ -269,6 +276,7 @@ class _MyHomePageState extends State<MyHomePage> {
           // !!! Column Hints
           InteractiveViewer(
             transformationController: transformation_controller,
+
             child: Column(
               children: [
                 HintsColumn(col_hints: col_hints, grid_size: grid_size, block_size: block_size),
@@ -280,44 +288,47 @@ class _MyHomePageState extends State<MyHomePage> {
                     HintsRow(row_hints: row_hints, grid_size: grid_size, block_size: block_size),
 
                     //!!! Grid
-                    XGestureDetector(
-                      onMoveStart: (details) {
-                        debugPrint("Matrix:\n${transformation_controller.value}");
-                        if(transformation_controller.value != Matrix4.identity()) return;
+                    GestureDetector(
+                      onScaleStart: (details) {
+                          if(details.pointerCount == 1){
+                          // calculating indecies
+                          final x = (details.localFocalPoint.dx) ~/ block_size;
+                          final y = (details.localFocalPoint.dy) ~/ block_size;
 
-                        // calculating indecies
-                        final x = (details.localPos.dx) ~/ block_size;
-                        final y = (details.localPos.dy) ~/ block_size;
-
-                        if(x < grid_size.width && y < grid_size.height && !checked[y][x])
-                          setState(() {
-                            checked[y][x] = true;
-                            putting = grid[y][x] == BlockState.Empty ? BlockState.Filled : BlockState.Empty;
-                            affecting = grid[y][x];
+                          if(x < grid_size.width && y < grid_size.height && !checked[y][x])
+                            setState(() {
+                              checked[y][x] = true;
+                              putting = grid[y][x] == BlockState.Empty ? BlockState.Filled : BlockState.Empty;
+                              affecting = grid[y][x];
 
 
-                            grid[y][x] = putting;
-                          }); 
+                              grid[y][x] = putting;
+                            }); 
+                          }
+                          else{
+                            
+                          }
                       },
 
-                      onMoveUpdate: (details) {
-                        if(transformation_controller.value != Matrix4.identity()) return;
+                      onScaleUpdate: (details) {
+                        if(details.pointerCount == 1){
 
-                        // calculating indecies
-                        final x = (details.localPos.dx) ~/ block_size;
-                        final y = (details.localPos.dy) ~/ block_size;
+                          // calculating indecies
+                          final x = (details.localFocalPoint.dx) ~/ block_size;
+                          final y = (details.localFocalPoint.dy) ~/ block_size;
 
 
-                        if(x < grid_size.width && y < grid_size.height && !checked[y][x])
-                          setState(() {
-                            checked[y][x] = true;
-                            if(grid[y][x] == affecting) grid[y][x] = putting;
-                          });
+                          if(x < grid_size.width && y < grid_size.height && !checked[y][x])
+                            setState(() {
+                              checked[y][x] = true;
+                              if(grid[y][x] == affecting) grid[y][x] = putting;
+                            });
+                        }
                       },
-                      onMoveEnd: (details){
-                        if(transformation_controller.value != Matrix4.identity()) return;
 
-                        setState(() => checked = generateChecked(grid_size));
+                      onScaleEnd: (details){
+                        if(details.pointerCount == 1) setState(() => checked = generateChecked(grid_size));
+
                       },
 
                       child: Grid(grid: grid, grid_size: grid_size, block_size: block_size),
