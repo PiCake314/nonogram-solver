@@ -2,11 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Size;
+import 'package:google_fonts/google_fonts.dart';
 import 'package:nono_solver/Block.dart';
 import 'package:nono_solver/Counter.dart';
 import 'package:nono_solver/Grid.dart';
 import 'package:nono_solver/HintsColumn.dart';
 import 'package:nono_solver/HintsRow.dart';
+import 'package:nono_solver/Util/OptionalParent.dart';
 
 
 
@@ -33,13 +35,7 @@ class MyApp extends StatelessWidget {
 }
 
 
-
-class MyInteractiveiwer extends InteractiveViewer {
-  MyInteractiveiwer({super.key, required super.child});
-
-
-}
-
+extension Comma on void { comma(next) => next; }
 
 
 class MyHomePage extends StatefulWidget {
@@ -49,23 +45,17 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-
 class _MyHomePageState extends State<MyHomePage> {
   Size grid_size = Size(5, 5);
 
-  late Grid_t grid = updateGrid();
-  late Hints row_hints = updateHintsRow();
-  late Hints col_hints = updateHintsCol();
-
-
-  Hints updateHints(int primay, int seconday) => List.generate(primay,
+  static Hints updateHints(int primay, int seconday) => List.generate(primay,
     (_) => List.filled(seconday, 0)
   );
 
-  updateHintsRow() => updateHints(grid_size.height, (grid_size.width + 1) ~/ 2);
-  updateHintsCol() => updateHints(grid_size.width, (grid_size.height + 1) ~/ 2);
+  static updateHintsRow(final Size grid_size) => updateHints(grid_size.height, (grid_size.width + 1) ~/ 2);
+  static updateHintsCol(final Size grid_size) => updateHints(grid_size.width, (grid_size.height + 1) ~/ 2);
 
-  Grid_t updateGrid() => List.generate(grid_size.height,
+  static Grid_t updateGrid(final Size grid_size) => List.generate(grid_size.height,
     (_) => List.generate(grid_size.width, (_) => BlockState.Empty)
   );
 
@@ -152,16 +142,15 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   static List<BlockState> getOverlap(final List<List<BlockState>> states, final int length) {
-
     final int overlap = states.isEmpty ? 0 : states.map(toBits).reduce((acc, elt) => acc & elt);
 
-    return List.generate(
-      length, (shift) => ((overlap >> shift) & 1) == 1 ? BlockState.Filled : BlockState.Empty
+    return List.generate(length,
+      (shift) => ((overlap >> shift) & 1) == 1 ? BlockState.Filled : BlockState.Empty
     ).reversed.toList(); // reversing because the bits are in reverse order
   }
 
 
-  static BlockState flip(BlockState e){
+  static BlockState flip(final BlockState e){
     switch(e){
       case BlockState.Empty:
         return BlockState.Filled;
@@ -179,12 +168,8 @@ class _MyHomePageState extends State<MyHomePage> {
     ).map((e) => e == BlockState.Filled || e == BlockState.Exed ? BlockState.Exed : BlockState.Empty).toList(); // re-flip the result
 
 
-
-
   List<List<BlockState>> allPossibleStates(final List<BlockState> row, final List<int> hints)
     => generateAllStates(row)..removeWhere((state) => !validateRow(state, hints));
-
-
 
 
 
@@ -215,44 +200,64 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
 
-  int stage = 0;
-  void step() {
+  static const STATES = ["Row: Black", "Col: Black", "Row: Red", "Col: Red"];
+  String state = "None";
+  int stage = -1;
+  bool done = false;
+  bool step() => done && setState(() {
+    // if(++stage == 4) stage = 0; // similar to: stage %= 4;
 
-    switch(stage){
+    final case_ = ++stage % 4;
+    switch(case_){
       case 0: process(Axis_t.Row, getOverlap);     break;
       case 1: process(Axis_t.Col, getOverlap);     break;
       case 2: process(Axis_t.Row, getExedOverlap); break;
       case 3: process(Axis_t.Col, getExedOverlap); break;
     }
+    state = STATES[case_];
+  }).comma(true);
 
-    setState(() {});
 
-    ++stage;
-    stage %= 4;
-  }
+  void updateDimension(final int inc, final Axis_t axis) => setState(() {
+    if (axis == Axis_t.Row) grid_size.width += inc;
+    else grid_size.height += inc;
+
+    grid = updateGrid(grid_size);
+    checked = generateChecked(grid_size);
+    row_hints = updateHintsRow(grid_size);
+    col_hints = updateHintsCol(grid_size);
+  });
 
 
   static calculateBlockSize(final int width, final Size grid_size) =>
      (width / (max(grid_size.width, grid_size.height) + 2)).floor();
 
 
-
-
   List<List<bool>> generateChecked(final Size grid_size) => List.generate(grid_size.height, (_) => List.generate(grid_size.width, (_) => false));
+
+  void reset() {
+    grid = updateGrid(grid_size);
+    checked = generateChecked(grid_size);
+    stage = -1;
+    state = "None";
+    // row_hints = updateHintsRow(grid_size);
+    // col_hints = updateHintsCol(grid_size);
+  }
+
+
+  late Grid_t grid = updateGrid(grid_size);
   late List<List<bool>> checked = generateChecked(grid_size);
+  late Hints row_hints = updateHintsRow(grid_size);
+  late Hints col_hints = updateHintsCol(grid_size);
+
   BlockState putting = BlockState.Filled;
   BlockState affecting = BlockState.Empty;
+
+  bool interactive = false;
 
   @override
   Widget build(BuildContext context) {
 
-    void updateDimension(final int inc, final Axis_t axis) => setState(() {
-      if (axis == Axis_t.Row) grid_size.width += inc;
-      else grid_size.height += inc;
-      grid = updateGrid();
-      row_hints = updateHintsRow();
-      col_hints = updateHintsCol();
-    });
 
 
 
@@ -263,8 +268,6 @@ class _MyHomePageState extends State<MyHomePage> {
     //   DeviceOrientation.portraitDown,
     // ]);
 
-    final transformation_controller = TransformationController();
-
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -272,15 +275,30 @@ class _MyHomePageState extends State<MyHomePage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const SizedBox(height: 50),
+          Row(
+            // mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(width: 50),
+              Column(
+                children: [
+                  Text("Step: ${stage + 1}\n$state",
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 28
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+
 
           // !!! Column Hints
-          InteractiveViewer(
-            transformationController: transformation_controller,
-
+          OptionalParent(
+            include_parent: interactive,
+            parent: (child) => InteractiveViewer(child: child),
             child: Column(
               children: [
                 HintsColumn(col_hints: col_hints, grid_size: grid_size, block_size: block_size),
-
                 // !!! Row Hints
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -288,50 +306,47 @@ class _MyHomePageState extends State<MyHomePage> {
                     HintsRow(row_hints: row_hints, grid_size: grid_size, block_size: block_size),
 
                     //!!! Grid
-                    GestureDetector(
-                      onScaleStart: (details) {
-                          if(details.pointerCount == 1){
-                          // calculating indecies
-                          final x = (details.localFocalPoint.dx) ~/ block_size;
-                          final y = (details.localFocalPoint.dy) ~/ block_size;
-
-                          if(x < grid_size.width && y < grid_size.height && !checked[y][x])
-                            setState(() {
-                              checked[y][x] = true;
-                              putting = grid[y][x] == BlockState.Empty ? BlockState.Filled : BlockState.Empty;
-                              affecting = grid[y][x];
-
-
-                              grid[y][x] = putting;
-                            }); 
-                          }
-                          else{
-                            
-                          }
-                      },
-
-                      onScaleUpdate: (details) {
-                        if(details.pointerCount == 1){
-
-                          // calculating indecies
-                          final x = (details.localFocalPoint.dx) ~/ block_size;
-                          final y = (details.localFocalPoint.dy) ~/ block_size;
-
-
-                          if(x < grid_size.width && y < grid_size.height && !checked[y][x])
-                            setState(() {
-                              checked[y][x] = true;
-                              if(grid[y][x] == affecting) grid[y][x] = putting;
-                            });
-                        }
-                      },
-
-                      onScaleEnd: (details){
-                        if(details.pointerCount == 1) setState(() => checked = generateChecked(grid_size));
-
-                      },
-
+                    OptionalParent(
+                      include_parent: !interactive,
                       child: Grid(grid: grid, grid_size: grid_size, block_size: block_size),
+                      parent: (child) => GestureDetector(
+                        onScaleStart: (details) {
+                            if(details.pointerCount == 1){
+                            // calculating indecies
+                            final x = (details.localFocalPoint.dx) ~/ block_size;
+                            final y = (details.localFocalPoint.dy) ~/ block_size;
+
+                            if(x < grid_size.width && y < grid_size.height && !checked[y][x])
+                              setState(() {
+                                checked[y][x] = true;
+                                putting = grid[y][x] == BlockState.Empty ? BlockState.Filled : BlockState.Empty;
+                                affecting = grid[y][x];
+
+                                grid[y][x] = putting;
+                              }); 
+                            }
+                        },
+
+                        onScaleUpdate: (details) {
+                          if(details.pointerCount == 1){
+                            // calculating indecies
+                            final x = (details.localFocalPoint.dx) ~/ block_size;
+                            final y = (details.localFocalPoint.dy) ~/ block_size;
+
+                            if(x < grid_size.width && y < grid_size.height && !checked[y][x])
+                              setState(() {
+                                checked[y][x] = true;
+                                if(grid[y][x] == affecting) grid[y][x] = putting;
+                              });
+                          }
+                        },
+
+                        onScaleEnd: (details){
+                          if(details.pointerCount == 1) setState(() => checked = generateChecked(grid_size));
+                        },
+
+                        child: child,
+                      ),
                     ),
                   ]
                 ),
@@ -353,13 +368,21 @@ class _MyHomePageState extends State<MyHomePage> {
                 SizedBox(
                   width: 100,
                   child: ElevatedButton(
-                    child: const Text("Reset", style: TextStyle(color: Colors.red)),
-                    onPressed: () => setState(() {
-                      grid = updateGrid();
-                      row_hints = updateHintsRow();
-                      col_hints = updateHintsCol();
-                    }),
+                    child: const Text("Reset", style: TextStyle(color: Colors.red, fontSize: 16)),
+                    onPressed: () => setState( reset ),
                   ),
+                ),
+
+                SizedBox(
+                  width: 100,
+                  child: Column(
+                    children: [
+                      Switch.adaptive(value: interactive, onChanged: (v) => setState(() => interactive = v)),
+                      const Text("Interactive",
+                        style: TextStyle(color: Colors.blue, fontSize: 16)
+                      )
+                    ],
+                  )
                 ),
 
                 SizedBox(
@@ -367,20 +390,18 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: ElevatedButton(
                     child: const Text("Solve", style: TextStyle(color: Colors.green)),
                     onPressed: (){
-                      // if(betterSolve()) setState(() {});
-                      // else debugPrint("No solution found!");
                       step();
                     },
                   ),
                 ),
 
-                SizedBox(
-                  width: 100,
-                  child: ElevatedButton(
-                    child: const Text("Step", style: TextStyle(color: Colors.blue)),
-                    onPressed: step,
-                  ),
-                ),
+                // SizedBox(
+                //   width: 100,
+                //   child: ElevatedButton(
+                //     child: const Text("Step", style: TextStyle(color: Colors.blue)),
+                //     onPressed: step,
+                //   ),
+                // ),
 
                 Counter(
                   number: grid_size.height,
