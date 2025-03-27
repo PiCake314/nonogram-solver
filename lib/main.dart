@@ -52,8 +52,11 @@ class _MyHomePageState extends State<MyHomePage> {
     (_) => List.filled(seconday, 0)
   );
 
-  static updateHintsRow(final Size grid_size) => updateHints(grid_size.height, (grid_size.width + 1) ~/ 2);
-  static updateHintsCol(final Size grid_size) => updateHints(grid_size.width, (grid_size.height + 1) ~/ 2);
+  // ! Problem with these two functions: They produce a new grid of hints everytime.
+  // ! Modifying in-place could be faster..
+  // ! I'm gonna leave it for now since performance is not an issue
+  static Hints updateHintsRow(final Size grid_size) => updateHints(grid_size.height, (grid_size.width + 1) ~/ 2);
+  static Hints updateHintsCol(final Size grid_size) => updateHints(grid_size.width, (grid_size.height + 1) ~/ 2);
 
   static Grid_t updateGrid(final Size grid_size) => List.generate(grid_size.height,
     (_) => List.generate(grid_size.width, (_) => BlockState.Empty)
@@ -201,31 +204,42 @@ class _MyHomePageState extends State<MyHomePage> {
 
 
   static const STATES = ["Row: Black", "Col: Black", "Row: Red", "Col: Red"];
-  String state = "None";
-  int stage = -1;
+  String? stage;
+  int state = -1;
   bool done = false;
-  bool step() => done && setState(() {
+  void step() => {if(done) setState(() {
     // if(++stage == 4) stage = 0; // similar to: stage %= 4;
+    if(stage == null) return;
 
-    final case_ = ++stage % 4;
+    final case_ = ++state % 4;
     switch(case_){
       case 0: process(Axis_t.Row, getOverlap);     break;
       case 1: process(Axis_t.Col, getOverlap);     break;
       case 2: process(Axis_t.Row, getExedOverlap); break;
       case 3: process(Axis_t.Col, getExedOverlap); break;
     }
-    state = STATES[case_];
-  }).comma(true);
+    stage = STATES[case_];
+  })};
 
 
   void updateDimension(final int inc, final Axis_t axis) => setState(() {
-    if (axis == Axis_t.Row) grid_size.width += inc;
-    else grid_size.height += inc;
+    if (axis == Axis_t.Row){ // it's funny. If you increase the row numbers, you need to modify the column hints!!
+      grid_size.width += inc;
+      final new_hints = updateHintsCol(grid_size);
 
-    grid = updateGrid(grid_size);
-    checked = generateChecked(grid_size);
-    row_hints = updateHintsRow(grid_size);
-    col_hints = updateHintsCol(grid_size);
+      for(int i = 0; i < min(col_hints.length, new_hints.length); ++i)
+        for(int j = 0; j < min(col_hints[0].length, new_hints[0].length); ++j)
+          new_hints[i][j] = col_hints[i][j];
+
+
+
+      col_hints = new_hints;
+    }
+    else{
+      grid_size.height += inc;
+    }
+
+    reset();
   });
 
 
@@ -238,8 +252,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void reset() {
     grid = updateGrid(grid_size);
     checked = generateChecked(grid_size);
-    stage = -1;
-    state = "None";
+    state = -1;
+    stage = null;
+
     // row_hints = updateHintsRow(grid_size);
     // col_hints = updateHintsCol(grid_size);
   }
@@ -281,7 +296,7 @@ class _MyHomePageState extends State<MyHomePage> {
               const SizedBox(width: 50),
               Column(
                 children: [
-                  Text("Step: ${stage + 1}\n$state",
+                  Text("Step: ${state +1}\n${stage ?? "None"}",
                     style: GoogleFonts.robotoMono(
                       fontSize: 28
                     ),
